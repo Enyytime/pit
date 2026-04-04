@@ -41,6 +41,7 @@ int main(int argc, char** argv){
     if(!strcmp(argv[1], "init")){
         return cmd_init();
     }
+    // hash
     if(!strcmp(argv[1], "hash-object")){
       hash_file(argv[2]);
     }
