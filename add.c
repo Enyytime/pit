@@ -59,7 +59,7 @@ void handle_multiple_file(){
 
 /**
  * @brief Entry point for the pit add command.
- *
+ * 
  * If filename is "." stages all files, otherwise stages a single file.
  *
  * @param filename  File to stage, or "." for all files

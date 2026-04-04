@@ -7,6 +7,17 @@
 #include <sys/stat.h> 
 #include "include/init.h"
 
+/**
+ * @brief Decompresses a zlib-compressed buffer.
+ *
+ * Allocates a buffer 4x the compressed size as an estimate for the
+ * decompressed output.
+ *
+ * @param decompressed_size  Output: actual size of decompressed data
+ * @param f                  FileStruct used to determine compressed size
+ * @param compress           Compressed data buffer
+ * @return                   Heap-allocated decompressed buffer — caller must free
+ */
 unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned char* compress){
     *decompressed_size = f.filesize * 4;
     unsigned char* decompressed = (unsigned char*)malloc(*decompressed_size);
@@ -15,6 +26,14 @@ unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned
 }
 
 
+/**
+ * @brief Reads and prints the contents of a pit object by hash.
+ *
+ * Builds the object path from the hash, reads and decompresses it,
+ * strips the blob header, and prints the file content to stdout.
+ *
+ * @param hash  40-char hex SHA1 hash of the object
+ */
 void cat_file(const char* hash){
     char* path = (char*)malloc(128);
     snprintf(path, 128, ".pit/objects/%.2s/%s", hash, hash + 2);
