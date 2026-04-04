@@ -37,7 +37,7 @@ int main(int argc, char** argv){
         fprintf(stderr, "usage: pit <command>\n");
         return 1;
     }
-
+    // init
     if(!strcmp(argv[1], "init")){
         return cmd_init();
     }
