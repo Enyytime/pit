@@ -4,9 +4,8 @@
 #include "include/file_handler.h"
 #include <string.h>
 #include <stdlib.h>
-#include "include/hash_object.h"
 #include <sys/stat.h> 
-
+#include "include/init.h"
 
 unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned char* compress){
     *decompressed_size = f.filesize * 4;
