@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h> 
 #include <sys/stat.h>
-
+#include "include/hash_object.h"
 
 static int make_dir(const char *path){
     if (mkdir(path, 0755) == -1) {
@@ -40,6 +40,9 @@ int main(int argc, char** argv){
 
     if(!strcmp(argv[1], "init")){
         return cmd_init();
+    }
+    if(!strcmp(argv[1], "hash-object")){
+      hash_file(argv[2]);
     }
     return 0;
 }
