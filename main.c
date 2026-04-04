@@ -33,6 +33,8 @@ int cmd_init(){
 
 
 int main(int argc, char** argv){
+
+    
     if(argc < 2){
         fprintf(stderr, "usage: pit <command>\n");
         return 1;
@@ -43,7 +45,10 @@ int main(int argc, char** argv){
     }
     // hash
     if(!strcmp(argv[1], "hash-object")){
-      hash_file(argv[2]);
+        hash_file(argv[2]);
+    }
+    if(!strcmp(argv[1], "cat-file")){
+        cat_file(argv[2]);
     }
     return 0;
 }

@@ -8,4 +8,5 @@ char* convert_hash_to_string(unsigned char* hash);
 unsigned char* compress_data(unsigned char* data, uLongf original_size, uLongf* compressed_size);
 void hash_file(const char* filename);
 
+
 #endif

@@ -29,6 +29,13 @@ unsigned char* read_file_to_string(FileStruct fileStruct){
     return buf;
 }
 
+/**
+ * @brief Writes a buffer to a file in binary mode.
+ *
+ * @param path  Path to the output file
+ * @param data  Buffer to write
+ * @param size  Number of bytes to write
+ */
 void write_file(const char* path, unsigned char* data, size_t size){
     FILE* out = fopen(path, "wb");
     if(out == NULL){
