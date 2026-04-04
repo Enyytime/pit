@@ -5,6 +5,7 @@
 #include "include/file_handler.h"
 #include "include/cat_file.h"
 #include "include/init.h"
+#include "include/add.h"
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -17,11 +18,15 @@ int parse_command(int argc, char** argv){
     }
     // hash
     if(!strcmp(argv[1], "hash-object")){
-        hash_file(argv[2]);
+        cmd_hash_file(argv[2]);
         return 0;
     }
     if(!strcmp(argv[1], "cat-file")){
         cat_file(argv[2]);
+        return 0;
+    }
+    if(!strcmp(argv[1], "add")){
+        pit_add(argv[2]);
         return 0;
     }
 }

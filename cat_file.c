@@ -19,11 +19,11 @@ void cat_file(const char* hash){
     char* path = (char*)malloc(128);
     snprintf(path, 128, ".pit/objects/%.2s/%s", hash, hash + 2);
 
-    FileStruct fileStruct = init_file_struct(path);
-    unsigned char* compressed = read_file_to_string(fileStruct);
+    FileStruct file_struct = init_file_struct(path);
+    unsigned char* compressed = read_file_to_string(file_struct);
 
     uLongf decompressed_size;
-    unsigned char* decompressed = decompress_data(&decompressed_size, fileStruct, compressed);
+    unsigned char* decompressed = decompress_data(&decompressed_size, file_struct, compressed);
     
     // skip the header
     unsigned char *content = memchr(decompressed, '\0', decompressed_size);

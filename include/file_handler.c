@@ -23,9 +23,9 @@ FILE* open_file(const char* filename){
  * @param fileStruct  FileStruct with an open file handle and filesize
  * @return            Heap-allocated buffer containing file bytes — caller must free
  */
-unsigned char* read_file_to_string(FileStruct fileStruct){
-    unsigned char *buf = (unsigned char*)malloc(fileStruct.filesize);
-    fread(buf, 1, fileStruct.filesize, fileStruct.file);
+unsigned char* read_file_to_string(FileStruct file_struct){
+    unsigned char *buf = (unsigned char*)malloc(file_struct.filesize);
+    fread(buf, 1, file_struct.filesize, file_struct.file);
     return buf;
 }
 

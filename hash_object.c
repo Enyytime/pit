@@ -18,12 +18,12 @@
  */
 char* get_full_directory_name (const char* hex) {
     // take first 2 chars of hex as the directory name
-    char *dirName = strndup(hex, 2);
+    char *dir_name = strndup(hex, 2);
     char* dir = (char*)malloc(sizeof(char) * 64);
 
     // build full path: .pit/objects/<2-char-prefix>
-    snprintf(dir, 64, ".pit/objects/%s", dirName);
-    free(dirName);
+    snprintf(dir, 64, ".pit/objects/%s", dir_name);
+    free(dir_name);
     return dir; // caller must free
 }
 
@@ -73,28 +73,28 @@ unsigned char* compress_data (unsigned char* data, uLongf original_size, uLongf*
  *
  * @param filename  Path to the file to hash
  */
-void hash_file (const char* filename) {
+char* hash_file(const char* filename) {
 
     // open file and get its size
-    FileStruct fileStruct = init_file_struct(filename);
+    FileStruct file_struct = init_file_struct(filename);
 
     // build blob header: "blob <filesize>\0"
     char header[32];
-    int header_len = snprintf(header, sizeof(header), "blob %d", fileStruct.filesize) + 1; // +1 to include the \0
+    int header_len = snprintf(header, sizeof(header), "blob %d", file_struct.filesize) + 1; // +1 to include the \0
 
     // read file content into buffer
-    unsigned char *content = read_file_to_string(fileStruct);
+    unsigned char *content = read_file_to_string(file_struct);
 
     // allocate buffer for header + content combined
-    unsigned char *full = malloc(header_len + fileStruct.filesize);
+    unsigned char *full = malloc(header_len + file_struct.filesize);
 
     // copy header then content into the combined buffer
     memcpy(full, header, header_len);
-    memcpy(full + header_len, content, fileStruct.filesize);
+    memcpy(full + header_len, content, file_struct.filesize);
 
     // SHA1 hash the combined buffer
     unsigned char hash[SHA_DIGEST_LENGTH];
-    SHA1(full, header_len + fileStruct.filesize, hash);
+    SHA1(full, header_len + file_struct.filesize, hash);
 
     // convert hash bytes to 40-char hex string
     char* hex = convert_hash_to_string(hash);
@@ -111,10 +111,15 @@ void hash_file (const char* filename) {
 
     // compress
     uLongf compressed_size;
-    unsigned char *compressed = compress_data(full, header_len + fileStruct.filesize, &compressed_size);
+    unsigned char *compressed = compress_data(full, header_len + file_struct.filesize, &compressed_size);
 
     // write to file
     write_file(path, compressed, compressed_size);
 
-    printf("%s\n", hex);
+    return hex;
+}
+
+void cmd_hash_file(const char* filename){
+    char* hash = hash_file(filename);
+    printf("%s\n", hash);
 }
