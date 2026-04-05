@@ -1,9 +1,30 @@
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "include/hash_object.h"
 #include "include/entry.h"
+#include <dirent.h>
+#include <stdbool.h>
 
+static bool opened_current_dir = false;
+
+bool is_entry_exist(const char* filename, const char* hash){
+    char line[256];
+    FILE* file = fopen(".pit/index", "r");
+    if(file == NULL){
+        return false; // index doesn't exist yet, nothing staged
+    }
+    while(fgets(line, sizeof(line), file) != NULL){
+        if(strstr(line, filename) != NULL){
+            fclose(file);
+            return true;
+        }
+    }
+
+    fclose(file);
+    return false;
+}
 /**
  * @brief Writes all staged entries to the .pit/index file.
  *
@@ -21,7 +42,7 @@ void put_to_index(EntryNode entry){
     }
     // write each entry on its own line
     fprintf(index_file, "%s %s %s\n", entry.mode, entry.hash, entry.filename);
-
+    printf("added %s\n", entry.filename);
     fclose(index_file);
 }
 
@@ -38,14 +59,36 @@ void handle_one_file(const char* filename){
     char* hashed_file = hash_file(filename);
     char* mode = "100644"; // hardcode for now
 
-    // add to in-memory entry list
-    add_entry(mode, hashed_file, filename);
 
+    if(is_entry_exist(filename, hashed_file)){
+        printf("%s already exist\n", filename);
+        return;
+    }
+
+    // add to in-memory entry list
+    add_entry(mode, hashed_file, filename); 
     int entry_count;
     EntryNode* entry = get_entries(&entry_count);
 
     // write to .pit/index
     put_to_index(entry[entry_count - 1]);
+}
+
+bool is_valid_file(const char* filename){
+    if(!strcmp(filename, ".")){
+        return false;
+    }
+    if(!strcmp(filename, "..")){
+        return false;
+    }
+    if(!strcmp(filename, ".pit")){
+        return false;
+    }
+    if(!strcmp(filename, ".git")){
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -54,6 +97,27 @@ void handle_one_file(const char* filename){
  * Not yet implemented.
  */
 void handle_multiple_file(){
+    struct dirent* ent;
+    DIR *dir = opendir(".");
+    
+    
+    if (dir == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while((ent = readdir(dir)) != NULL){
+        if(!is_valid_file(ent->d_name)){
+            continue;
+        }
+        if(ent->d_type == DT_DIR){
+            handle_multiple_file();
+        } else if (ent->d_type == DT_REG){
+            handle_one_file(ent->d_name);
+        }
+    }
+
+    closedir(dir);
     return;
 }
 

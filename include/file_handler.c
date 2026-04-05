@@ -13,7 +13,6 @@ FILE* open_file(const char* filename){
         fprintf(stderr, "file can't be openned\n");
         exit(1);
     }
-
     return file;
 }
 
