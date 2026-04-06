@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "include/hash_object.h"
 #include <sys/stat.h> 
+#include <errno.h>
 
 /**
  * @brief Builds the full directory path for a git object.
@@ -65,6 +66,55 @@ unsigned char* compress_data (unsigned char* data, uLongf original_size, uLongf*
 
 
 /**
+ * @brief Stores a raw buffer as a git object in .pit/objects/.
+ *
+ * Prepends the header "type <size>\0", SHA1 hashes the result,
+ * zlib compresses, and writes to .pit/objects/<2-char>/<38-char>.
+ *
+ * @param type  Object type string ("blob", "tree", "commit")
+ * @param data  Raw data buffer
+ * @param size  Size of the data buffer in bytes
+ * @return      Heap-allocated 40-char hex hash — caller must free
+ */
+char* store_object(const char* type, unsigned char* data, int size) {
+    // build header: "type <size>\0"
+    char header[32];
+    int header_len = snprintf(header, sizeof(header), "%s %d", type, size) + 1;
+
+    // combine header + data
+    unsigned char *full = malloc(header_len + size);
+    memcpy(full, header, header_len);
+    memcpy(full + header_len, data, size);
+
+    // SHA1 hash
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1(full, header_len + size, hash);
+
+    // convert to hex
+    char* hex = convert_hash_to_string(hash);
+
+    // build path and store
+    char* dir = get_full_directory_name(hex);
+    if(mkdir(dir, 0755) == -1 && errno != EEXIST){
+        perror(dir);
+    }
+
+    char* path = (char*)malloc(128);
+    snprintf(path, 128, "%s/%s", dir, hex + 2);
+
+    uLongf compressed_size;
+    unsigned char *compressed = compress_data(full, header_len + size, &compressed_size);
+    write_file(path, compressed, compressed_size);
+
+    free(full);
+    free(dir);
+    free(path);
+    free(compressed);
+
+    return hex;
+}
+
+/**
  * @brief Hashes a file and stores it as a blob object in .pit/objects/.
  *
  * Reads the file, builds a git blob header ("blob <size>\0"),
@@ -78,45 +128,11 @@ char* hash_file(const char* filename) {
     // open file and get its size
     FileStruct file_struct = init_file_struct(filename);
 
-    // build blob header: "blob <filesize>\0"
-    char header[32];
-    int header_len = snprintf(header, sizeof(header), "blob %d", file_struct.filesize) + 1; // +1 to include the \0
-
     // read file content into buffer
     unsigned char *content = read_file_to_string(file_struct);
 
-    // allocate buffer for header + content combined
-    unsigned char *full = malloc(header_len + file_struct.filesize);
-
-    // copy header then content into the combined buffer
-    memcpy(full, header, header_len);
-    memcpy(full + header_len, content, file_struct.filesize);
-
-    // SHA1 hash the combined buffer
-    unsigned char hash[SHA_DIGEST_LENGTH];
-    SHA1(full, header_len + file_struct.filesize, hash);
-
-    // convert hash bytes to 40-char hex string
-    char* hex = convert_hash_to_string(hash);
-
-    // build the object directory path (.pit/objects/<first-2-chars>)
-    char* dir = get_full_directory_name(hex);
- 
-    if(mkdir(dir, 0755) == -1){
-        perror(dir);
-    }
-
-    char* path = (char*)malloc(128);
-    snprintf(path, 128, "%s/%s", dir, hex + 2);
-
-    // compress
-    uLongf compressed_size;
-    unsigned char *compressed = compress_data(full, header_len + file_struct.filesize, &compressed_size);
-
-    // write to file
-    write_file(path, compressed, compressed_size);
-
-    return hex;
+    // store as blob object and return hex hash
+    return store_object("blob", content, file_struct.filesize);
 }
 
 void cmd_hash_file(const char* filename){

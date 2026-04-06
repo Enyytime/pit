@@ -29,4 +29,8 @@ int parse_command(int argc, char** argv){
         pit_add(argv[2]);
         return 0;
     }
+    if(!strcmp(argv[1], "write-tree")){
+      pit_write_tree();
+      return 0;
+  }
 }

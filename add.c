@@ -7,7 +7,6 @@
 #include <dirent.h>
 #include <stdbool.h>
 
-static bool opened_current_dir = false;
 
 bool is_entry_exist(const char* filename, const char* hash){
     char line[256];
@@ -87,7 +86,6 @@ bool is_valid_file(const char* filename){
     if(!strcmp(filename, ".git")){
         return false;
     }
-
     return true;
 }
 
