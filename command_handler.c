@@ -33,5 +33,9 @@ int parse_command(int argc, char** argv){
     if(!strcmp(argv[1], "write-tree")){
         pit_write_tree();
         return 0;
+    }
+    if(!strcmp(argv[1], "commit-tree")){
+      pit_commit_tree(argv[2], argv[3]);
+      return 0;
   }
 }
