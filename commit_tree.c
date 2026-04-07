@@ -12,7 +12,9 @@ char* get_name(FILE* file){
     char buffer[256];
     while(fgets(buffer, sizeof(buffer), file) != NULL){
         if(strncmp(buffer, "name=", 5) == 0){
-            return strdup(buffer + 5);
+            char* val = strdup(buffer + 5);
+            val[strcspn(val, "\n")] = '\0';
+            return val;
         }
     }
 }
@@ -21,7 +23,9 @@ char* get_email(FILE* file){
     char buffer[256];
     while(fgets(buffer, sizeof(buffer), file) != NULL){
         if(strncmp(buffer, "email=", 6) == 0){
-            return strdup(buffer + 6);
+            char* val = strdup(buffer + 6);
+            val[strcspn(val, "\n")] = '\0';
+            return val;
         }
     }
 }
@@ -35,6 +39,7 @@ char* first_commit(const char* tree_hash, const char* commit_message, const char
     len += snprintf(content + len, 1024 - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
     len += snprintf(content + len, 1024 - len, "\n%s\n", commit_message);
 
+    // printf("content: %s\n", content);
 
     return content;
 }
@@ -59,7 +64,7 @@ char* write_commit_details(const char* tree_hash, const char* commit_message) {
     char* name = get_name(config);
     rewind(config);
     char* email = get_email(config);
-
+    // printf("commit email: %s\n", email);
     time_t timestamp = time(NULL);
     char* content;
 

@@ -8,36 +8,37 @@
 #include "include/file_handler.h"
 
 char* get_author(const char* details){
-      char* author_line = strstr(details, "author ");
-      char* end_line = strchr(author_line, '\n');
-      char* author = strndup(author_line, end_line - author_line);
+    char* author_line = strstr(details, "author ");
+    char* end_line = strchr(author_line, '\n');
+    char* author = strndup(author_line, end_line - author_line);
 
-      strtok(author, " "); // skip "author"
-      char* name = strtok(NULL, "<"); // get name (stops before email)
-      char* email = strtok(NULL, ">"); // get email (between < and >)
 
-      // combine name and email
-      char* result = malloc(256);
-      snprintf(result, 256, "%s<%s>", name, email);
-      return result;
-  }
+    strtok(author, " "); // skip "author"
+    char* name = strtok(NULL, "<"); // get name (stops before email)
+    char* email = strtok(NULL, ">"); // get email (between < and >)
 
-// char* get_date(const char* details){
-//     char* author_line = strstr(details, "author");
-//     char* end_line = strchr(author_line, '\n');
-//     char* author = strndup(author_line, end_line - author_line);
+    // combine name and email
+    char* result = malloc(256);
+    snprintf(result, 256, "%s <%s>", name, email);
+    return result;
+}
 
-//     strtok(author, " "); // "author"
-//     strtok(NULL, " ");   // name
-//     strtok(NULL, " ");   // <email>
-//     char* timestamp_str = strtok(NULL, " "); // timestamp
+char* get_date(const char* details){
+    char* author_line = strstr(details, "author");
+    char* end_line = strchr(author_line, '\n');
+    char* author = strndup(author_line, end_line - author_line);
 
-//     time_t ts = atol(timestamp_str);
-//     char* date_buf = malloc(64);
-//     struct tm* t = localtime(&ts);
-//     strftime(date_buf, 64, "%a %b %d %H:%M:%S %Y", t);
-//     return date_buf;
-// }
+    strtok(author, " "); // "author"
+    strtok(NULL, " ");   // name
+    strtok(NULL, " ");   // <email>
+    char* timestamp_str = strtok(NULL, " "); // timestamp
+
+    time_t ts = atol(timestamp_str);
+    char* date_buf = malloc(64);
+    struct tm* t = localtime(&ts);
+    strftime(date_buf, 64, "%a %b %d %H:%M:%S %Y", t);
+    return date_buf;
+}
 
 char* get_commit_message(const char* details){
     char* message_start = strstr(details,"\n\n");
@@ -85,11 +86,11 @@ void pit_log(){
         char* parent = get_parent(commit_details);
 
         char* author = get_author(commit_details);
-        // char* date = get_date(commit_details);
+        char* date = get_date(commit_details);
         char* message = get_commit_message(commit_details);
-
+        printf("Commit %s\n", commit_hash);
         printf("Author: %s\n", author);
-        // printf("Date:   %s\n", date);
+        printf("Date:   %s\n\n", date);
         printf("    %s", message);
 
         if(parent == NULL) break;
