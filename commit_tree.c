@@ -31,9 +31,9 @@ char* first_commit(const char* tree_hash, const char* commit_message, const char
 
     int len = 0;
     len += snprintf(content + len, 1024 - len, "tree %s\n", tree_hash);
-    len += snprintf(content + len, sizeof(content) - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
-    len += snprintf(content + len, sizeof(content) - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
-    len += snprintf(content + len, sizeof(content) - len, "\n%s\n", commit_message);
+    len += snprintf(content + len, 1024 - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
+    len += snprintf(content + len, 1024 - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
+    len += snprintf(content + len, 1024 - len, "\n%s\n", commit_message);
 
 
     return content;
@@ -44,16 +44,16 @@ char* regular_commit(const char* tree_hash, const char* commit_message, const ch
 
     int len = 0;
     len += snprintf(content + len, 1024 - len, "tree %s\n", tree_hash);
-    len += snprintf(content + len, sizeof(content) - len, "parent %s\n", parent);
-    len += snprintf(content + len, sizeof(content) - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
-    len += snprintf(content + len, sizeof(content) - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
-    len += snprintf(content + len, sizeof(content) - len, "\n%s\n", commit_message);
+    len += snprintf(content + len, 1024 - len, "parent %s\n", parent);
+    len += snprintf(content + len, 1024 - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
+    len += snprintf(content + len, 1024 - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
+    len += snprintf(content + len, 1024 - len, "\n%s\n", commit_message);
 
     return content;
 }
 
 
-void write_commit_details(const char* tree_hash, const char* commit_message) {
+char* write_commit_details(const char* tree_hash, const char* commit_message) {
 
     FILE* config = fopen(".pit/config", "r");
     char* name = get_name(config);
@@ -75,17 +75,17 @@ void write_commit_details(const char* tree_hash, const char* commit_message) {
     }
 
     char* hex = store_object("commit", (unsigned char*)content, strlen(content));
-    printf("%s\n", hex);      
 
     FILE* ref = fopen(".pit/refs/heads/main", "w");
     fprintf(ref, "%s\n", hex);
     fclose(ref);
 
-    return ;
+    return hex;
 }
 
 
 
 void pit_commit_tree(const char* tree_hash, const char* commit_message) {
-    write_commit_details(tree_hash, commit_message);
+    char *commit = write_commit_details(tree_hash, commit_message);
+    printf("%s\n", commit);
 }

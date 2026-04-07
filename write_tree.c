@@ -44,13 +44,13 @@ void* append_tree(char** tree, const char* tree_line, int line_length){
     }
 }
 
-void read_index(){
+char* read_index(){
     FILE* file = fopen(".pit/index", "r");
 
     char line[256]; 
 
     if(file == NULL){
-        return; 
+        return NULL; 
     }
 
     char* tree = (char*)malloc(sizeof(char) * capacity);
@@ -66,12 +66,14 @@ void read_index(){
 
 
     char* hex = store_object("tree", (unsigned char*)tree, length);
-    printf("%s\n", hex);
 
     length = 0;
     capacity = 10;
+
+    return hex;
 }
 
 void pit_write_tree(){
-    read_index();
+    char* tree = read_index();
+    printf("%s\n", tree);
 }

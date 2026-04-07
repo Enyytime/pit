@@ -47,8 +47,8 @@ int cmd_init(){
     char* email = getenv("GIT_AUTHOR_EMAIL");
 
     FILE* config = fopen(".pit/config", "w");
-    fprintf(config, "name=%s", name);
-    fprintf(config, "email=%s", email);
+    fprintf(config, "name=%s\n", name);
+    fprintf(config, "email=%s\n", email);
     fclose(config);
 
     printf("Initialized empty pit repository in .pit/\n");

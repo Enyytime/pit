@@ -7,6 +7,10 @@
 #include "include/init.h"
 #include "include/add.h"
 #include "include/write_tree.h"
+#include "include/commit_tree.h"
+#include "include/commit.h"
+#include "include/log.h"
+
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -37,5 +41,15 @@ int parse_command(int argc, char** argv){
     if(!strcmp(argv[1], "commit-tree")){
       pit_commit_tree(argv[2], argv[3]);
       return 0;
-  }
+    }   
+
+    if(!strcmp(argv[1], "commit")){
+        pit_commit(argv[3]);
+        return 0;
+    }
+
+    if(!strcmp(argv[1], "log")){
+        pit_log();
+        return 0;
+    }
 }
