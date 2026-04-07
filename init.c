@@ -4,6 +4,7 @@
 #include "include/hash_object.h"
 #include "include/cat_file.h"
 #include "include/command_handler.h"
+#include <stdlib.h>
 
 
 /**
@@ -41,6 +42,14 @@ int cmd_init(){
     if (!f) { perror(".pit/HEAD"); return -1; }
     fprintf(f, "ref: refs/heads/main\n");
     fclose(f);
+
+    char* name = getenv("GIT_AUTHOR_NAME");
+    char* email = getenv("GIT_AUTHOR_EMAIL");
+
+    FILE* config = fopen(".pit/config", "w");
+    fprintf(config, "name=%s", name);
+    fprintf(config, "email=%s", email);
+    fclose(config);
 
     printf("Initialized empty pit repository in .pit/\n");
 

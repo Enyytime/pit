@@ -6,6 +6,7 @@
 #include "include/cat_file.h"
 #include "include/init.h"
 #include "include/add.h"
+#include "include/write_tree.h"
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -30,7 +31,7 @@ int parse_command(int argc, char** argv){
         return 0;
     }
     if(!strcmp(argv[1], "write-tree")){
-      pit_write_tree();
-      return 0;
+        pit_write_tree();
+        return 0;
   }
 }

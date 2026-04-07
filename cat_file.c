@@ -35,6 +35,7 @@ unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned
  * @param hash  40-char hex SHA1 hash of the object
  */
 void cat_file(const char* hash){
+    
     char* path = (char*)malloc(128);
     snprintf(path, 128, ".pit/objects/%.2s/%s", hash, hash + 2);
 

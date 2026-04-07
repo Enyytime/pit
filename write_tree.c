@@ -7,9 +7,9 @@
 #include <dirent.h>
 #include <stdbool.h>
 
+
 int length = 0;
 int capacity = 10;
-
 
 
 char* build_tree_entry(const char* mode, const char* hash, const char* filename, int* line_length){
