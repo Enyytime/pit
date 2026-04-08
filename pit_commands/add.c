@@ -94,9 +94,9 @@ bool is_valid_file(const char* filename){
  *
  * Not yet implemented.
  */
-void handle_multiple_file(){
+void handle_multiple_file(const char* prefix){
     struct dirent* ent;
-    DIR *dir = opendir(".");
+    DIR *dir = opendir(strlen(prefix) == 0 ? "." : prefix);
     
     
     if (dir == NULL) {
@@ -108,10 +108,16 @@ void handle_multiple_file(){
         if(!is_valid_file(ent->d_name)){
             continue;
         }
+        char full_path[512];
+        if(strlen(prefix) == 0){
+            snprintf(full_path, sizeof(full_path), "%s", ent->d_name);
+        } else {
+            snprintf(full_path, sizeof(full_path), "%s/%s", prefix, ent->d_name);
+        }
         if(ent->d_type == DT_DIR){
-            handle_multiple_file();
+            handle_multiple_file(full_path);
         } else if (ent->d_type == DT_REG){
-            handle_one_file(ent->d_name);
+            handle_one_file(full_path);
         }
     }
 
@@ -128,7 +134,7 @@ void handle_multiple_file(){
  */
 void pit_add(const char* filename){
     if(!strcmp(filename, ".")){
-        handle_multiple_file();
+        handle_multiple_file(".");
     } else {
         handle_one_file(filename);
     }

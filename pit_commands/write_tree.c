@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "include/hash_object.h"
 #include "include/entry.h"
+#include "include/dequeue.h"
 #include <dirent.h>
 #include <stdbool.h>
 
@@ -44,6 +45,39 @@ void* append_tree(char** tree, const char* tree_line, int line_length){
     }
 }
 
+void build_queue_directory(Deque* deq, FILE* file) {
+    char line[256];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        strtok(line, " ");
+        strtok(NULL, " ");
+        char *filename = strtok(NULL, "\n");
+
+        // Walk through each '/' to extract directory prefixes
+        char *slash = filename;
+        while ((slash = strchr(slash, '/')) != NULL) {
+            // prefix is everything up to (not including) this slash
+            int prefix_len = slash - filename;
+            char prefix[256];
+            strncpy(prefix, filename, prefix_len);
+            prefix[prefix_len] = '\0';
+
+            bool found = false;
+            DListNode* current = deq_frontNode(deq);
+            while(current != NULL){
+                if(strcmp(deq_getPrefix(current), prefix) == 0){
+                    found = true;
+                    break;
+                }
+                current = current->next;
+            }
+            if(!found){
+                deq_pushBack(deq, prefix);
+            }
+        }
+    }
+}
+
+
 char* read_index(){
     FILE* file = fopen(".pit/index", "r");
 
@@ -54,6 +88,9 @@ char* read_index(){
     }
 
     char* tree = (char*)malloc(sizeof(char) * capacity);
+
+    Deque deq;
+    deq_init(&deq);
 
     while(fgets(line, sizeof(line), file) != NULL){
         char *mode = strtok(line, " ");
@@ -70,6 +107,7 @@ char* read_index(){
     length = 0;
     capacity = 10;
 
+    fclose(file);
     return hex;
 }
 
