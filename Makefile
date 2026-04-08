@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wextra -pedantic
+CFLAGS = -Wextra -pedantic -I.
 TARGET = pit
 
-SRCS = $(wildcard *.c) $(wildcard include/*.c)
+SRCS = $(wildcard *.c) $(wildcard include/*.c) $(wildcard pit_commands/*.c) $(wildcard data_structures/*.c)
 
 $(TARGET): $(SRCS)
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET) -lssl -lcrypto -lz
