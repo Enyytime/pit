@@ -114,6 +114,21 @@ char* store_object(const char* type, unsigned char* data, int size) {
     return hex;
 }
 
+char* compute_hash(const char* type, unsigned char* data, int size) {
+    char header[32];
+    int header_len = snprintf(header, sizeof(header), "%s %d", type, size) + 1;
+
+    unsigned char *full = malloc(header_len + size);
+    memcpy(full, header, header_len);
+    memcpy(full + header_len, data, size);
+
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1(full, header_len + size, hash);
+    free(full);
+
+    return convert_hash_to_string(hash);
+}
+
 /**
  * @brief Hashes a file and stores it as a blob object in .pit/objects/.
  *

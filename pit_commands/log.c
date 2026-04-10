@@ -64,7 +64,7 @@ char* get_parent(const char* details){
 
 
 char* create_log_message(const char* commit_hash){
-    char* commit_details = cat_file(commit_hash);
+    char* commit_details = cat_file(commit_hash, NULL);
     return commit_details;
 }
 

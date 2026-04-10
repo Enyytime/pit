@@ -10,6 +10,7 @@
 #include "include/commit_tree.h"
 #include "include/commit.h"
 #include "include/log.h"
+#include "include/status.h"
 
 
 int parse_command(int argc, char** argv){
@@ -27,7 +28,7 @@ int parse_command(int argc, char** argv){
         return 0;
     }
     if(!strcmp(argv[1], "cat-file")){
-        cat_file(argv[2]);
+        pit_cat_file(argv[2]);
         return 0;
     }
     if(!strcmp(argv[1], "add")){
@@ -50,6 +51,11 @@ int parse_command(int argc, char** argv){
 
     if(!strcmp(argv[1], "log")){
         pit_log();
+        return 0;
+    }
+
+    if(!strcmp(argv[1], "status")){
+        pit_status();
         return 0;
     }
 }

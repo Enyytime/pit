@@ -106,6 +106,8 @@ Dir_depth* put_index_to_dirs(FILE* file, int* dir_length_out){
         strtok(line, " ");
         strtok(NULL, " ");
         char* filename = strtok(NULL, "\n");
+        if (strncmp(filename, "./", 2) == 0) filename += 2;
+
         int depth = get_depth(filename);
         
         if(depth == 0){
@@ -173,10 +175,13 @@ char* read_index(){
         char* subtree = (char*)malloc(sizeof(char) * capacity);
 
         // build entry in current subdirectories
+        fseek(file, 0, SEEK_SET);
         while(fgets(line, sizeof(line), file) != NULL){
             char *mode = strtok(line, " ");
             char *hash = strtok(NULL, " ");
             char *filename = strtok(NULL, "\n");
+            if (strncmp(filename, "./", 2) == 0) filename += 2;
+            
 
             int full_path_len = strlen(dirs[i].full_path);
             // src/
@@ -196,7 +201,7 @@ char* read_index(){
             }
 
             int line_length;
-            char* line_entry = build_tree_entry(mode, hash, filename, &line_length);
+            char* line_entry = build_tree_entry(mode, hash, direct_child, &line_length);
             append_tree(&subtree, line_entry, line_length);
         }
 
@@ -210,7 +215,7 @@ char* read_index(){
                 continue;
             }
             // if we're checking it self, skip
-            if(!strcmp(dirs[j].parent, dirs[i].prefix)) {
+            if(strcmp(dirs[j].parent, dirs[i].prefix) != 0) {
                 continue;
             }
 
@@ -232,10 +237,12 @@ char* read_index(){
     char* tree = (char*)malloc(sizeof(char) * capacity);
 
     
+    fseek(file, 0, SEEK_SET);
     while(fgets(line, sizeof(line), file) != NULL){
         char *mode = strtok(line, " ");
         char *hash = strtok(NULL, " ");
         char *filename = strtok(NULL, "\n");
+        if (strncmp(filename, "./", 2) == 0) filename += 2;
         if (strchr(filename, '/') != NULL) continue;
         int line_length;
         char* line_entry = build_tree_entry(mode, hash, filename, &line_length);

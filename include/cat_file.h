@@ -6,6 +6,6 @@
 
 unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned char* compress);
 
-char* cat_file(const char* hash);
-
+char* cat_file(const char* hash, int* size);
+void pit_cat_file(const char* hash);
 #endif

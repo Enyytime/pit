@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "include/file_handler.h"
 #include "include/cat_file.h"
+#include "include/hash_object.h"
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 
 char* get_tree_hash(const char* commit_content){
@@ -11,31 +13,58 @@ char* get_tree_hash(const char* commit_content){
     return hash;
 }
 
-char* get_commit_tree_content(FileStruct commit){
-    char* commit_hash = read_file_to_string(commit);
-    char* commit_content = cat_file(commit_hash);
+char* get_commit_tree_content(FileStruct commit, int* tree_size){
+    char* commit_hash = (char*)read_file_to_string(commit);
+    commit_hash[commit.filesize] = '\0';
+    commit_hash[strcspn(commit_hash, "\n")] = '\0';
+    
+    char* commit_content = cat_file(commit_hash, NULL);
     char* tree_hash = get_tree_hash(commit_content);
-    char* tree_content = cat_file(tree_hash);
+    printf("tree_hash: %s\n", tree_hash);
+    char* tree_content = cat_file(tree_hash, tree_size);
+    printf("tree_size: %d\n", *tree_size);
     return tree_content;
 }
 
-bool is_file_changed(const char* tree_content, const char* index_file_hash){
-    char* hash_found = strstr(tree_content, index_file_hash);
-    if(hash_found){
-        return false;
-    } else {
-        return true;
+bool is_file_changed(char* tree_content, int tree_size, const char* index_file_hash){
+    char* start = tree_content;
+    char* end = tree_content + tree_size;
+
+    bool found = false;
+    while(start < end){
+        char* null_pos = memchr(start, '\0', end - start);
+
+        if (null_pos == NULL) break;
+
+        unsigned char* bin_hash = (unsigned char*)null_pos + 1;
+        if ((char*)bin_hash + 20 > end) {
+            break;
+        }
+
+        char hex[41];
+        for(int i = 0; i < 20; i++){
+            sprintf(hex + (i * 2), "%02x", bin_hash[i]);
+        }
+        hex[40] = '\0';
+
+        if (strcmp(hex, index_file_hash) == 0) {
+            return false; // hash found, not changed
+        }
+        start = (char*)bin_hash + 20;
     }
+    return true;
 }
 
+
+
 void compare_staged_changes(){
-    printf("Changes to be committed:\n");
+    printf("Changes to be committed:\n\n");
     FileStruct index = init_file_struct(".pit/index");
     FileStruct commit = init_file_struct(".pit/refs/heads/main");
 
-
-    char* tree_content = get_commit_tree_content(commit);
-    char* index_content = read_file_to_string(index);
+    int tree_size = 0;
+    char* tree_content = get_commit_tree_content(commit, &tree_size);
+    char* index_content = (char*)read_file_to_string(index);
 
     char* index_line = strtok(index_content, "\n");
     while(index_line != NULL){
@@ -44,9 +73,30 @@ void compare_staged_changes(){
         char* index_file_hash = strtok(NULL, " ");
         char* index_file_name = strtok(NULL, "\n");
 
-        char* found = strstr(tree_content, index_file_name);
+        char* name = index_file_name;
+        if (strncmp(name, "./", 2) == 0) name += 2;
+
+        // walk tree entries to find filename
+        char* p = tree_content;
+        char* end = tree_content + tree_size;
+        bool found = false;
+        while (p < end) {
+            char* null_pos = memchr(p, '\0', end - p);
+            if (null_pos == NULL) break;
+            char* space = memchr(p, ' ', null_pos - p);
+            if (space != NULL) {
+                char* entry_name = space + 1;
+                printf("checking: %s against %s\n", entry_name, name);
+                if (strcmp(entry_name, name) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            p = (char*)(unsigned char*)null_pos + 1 + 20;
+        }
+
         if (found) {
-            if (is_file_changed(tree_content, index_file_name)){
+            if (is_file_changed(tree_content, tree_size, index_file_hash)){
                 printf("\tModified: %s\n", index_file_name);
             }
         } else {
@@ -56,18 +106,51 @@ void compare_staged_changes(){
         free(copy);
         index_line = strtok(NULL, "\n");
     }
+    printf("\n");
     fclose(index.file);
     fclose(commit.file);
 }
 
-void compare_not_staged();
+void compare_not_staged(){
+    printf("Changes not staged for commit:\n\n");
+    FileStruct index = init_file_struct(".pit/index");
+    char* index_content = (char*)read_file_to_string(index);
+
+    char* index_line = strtok(index_content, "\n");
+
+    while(index_line != NULL){
+        char* copy = strdup(index_line);
+        strtok(copy, " ");
+        char* index_file_hash = strtok(NULL, " ");
+        char* index_file_name = strtok(NULL, "\n");
+        char* name = index_file_name;
+        if (strncmp(name, "./", 2) == 0) name += 2;
+
+        FileStruct f = init_file_struct(index_file_name);
+        unsigned char* content = read_file_to_string(f);
+
+        char* current_hash = compute_hash("blob", content, f.filesize);
+        fclose(f.file);
+        free(content);
+        
+        if(strcmp(index_file_hash, current_hash) != 0){
+            printf("\tModified: %s\n", index_file_name);
+        } 
+
+        free(copy);
+        free(current_hash);
+        index_line = strtok(NULL, "\n");
+    }
+    printf("\n");
+    fclose(index.file);
+}
 
 void compare_changes(){
+    printf("On branch main\n\n");
     compare_staged_changes();
     compare_not_staged();
-    compare
 }
 
 void pit_status(){
-
+    compare_changes();
 }

@@ -34,7 +34,7 @@ unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned
  *
  * @param hash  40-char hex SHA1 hash of the object
  */
-char* cat_file(const char* hash){
+char* cat_file(const char* hash, int* size){
     
     char* path = (char*)malloc(128);
     snprintf(path, 128, ".pit/objects/%.2s/%s", hash, hash + 2);
@@ -46,13 +46,17 @@ char* cat_file(const char* hash){
     unsigned char* decompressed = decompress_data(&decompressed_size, file_struct, compressed);
     
     // skip the header
-    unsigned char *content = memchr(decompressed, '\0', decompressed_size);
-    content++; // move the pointer after the \0;
+    unsigned char *null_pos = memchr(decompressed, '\0', decompressed_size);
+    unsigned char *content = null_pos + 1;
+
+    if (size != NULL) {
+        *size = decompressed_size - (content - decompressed);
+    }
 
     return (char*)content;
 }
 
 void pit_cat_file(const char* hash){
-    char* content = cat_file(hash);
+    char* content = cat_file(hash, NULL);
     printf("%s\n", content);
 }

@@ -23,7 +23,7 @@ FILE* open_file(const char* filename){
  * @return            Heap-allocated buffer containing file bytes — caller must free
  */
 unsigned char* read_file_to_string(FileStruct file_struct){
-    unsigned char *buf = (unsigned char*)malloc(file_struct.filesize);
+    unsigned char *buf = (unsigned char*)malloc(file_struct.filesize + 1);
     fread(buf, 1, file_struct.filesize, file_struct.file);
     return buf;
 }
