@@ -55,9 +55,11 @@ bool is_file_changed(char* tree_content, int tree_size, const char* index_file_h
     return true;
 }
 
-bool file_found(const char* tree_content, int tree_size, const char* filename){
+bool file_found(char* tree_content, int tree_size, char* path){
     char* start = tree_content;
     char* end = tree_content + tree_size;
+
+    char* slash = strchr(path, '/'); // check if if's inside a directory
 
     while(start < end){
         char* null_pos = memchr(start, '\0', end - start);
@@ -65,10 +67,35 @@ bool file_found(const char* tree_content, int tree_size, const char* filename){
             break;
         }
         char* space = memchr(start, ' ', null_pos - start);
-        if(space != NULL){
-            char* filename_in_tree = space + 1;
-            if(strcmp(filename_in_tree, filename) == 0){
+        if(space == NULL) {
+            start = (char*)(unsigned char*)null_pos + 20 + 1;
+            continue;
+        }
+
+        char* mode = start;
+        char* filename_in_tree = space + 1;
+        if(slash == NULL){
+            if (strcmp(filename_in_tree, path) == 0) {
                 return true;
+            }
+        } else {
+            // path = "halo/main.c"
+            //         ^   ^
+            //         |   slash (first '/')
+            //         path start
+            // str_dir_len = slash - path = 4  →  "halo"
+            int str_dir_len = slash - path;
+
+            if(strncmp(filename_in_tree, path, str_dir_len) == 0 && filename_in_tree[str_dir_len] == '\0'){
+                unsigned char* bin_hash = (unsigned char*)null_pos + 1;
+                char hex[41];
+                for(int i = 0; i < 20; i++){
+                    sprintf(hex + (i * 2), "%02x", bin_hash[i]);
+                }
+                hex[40] = '\0';
+                int subdir_size;
+                char* subdir_content = cat_file(hex, &subdir_size);
+                return file_found(subdir_content, subdir_size, slash + 1);
             }
         }
         start = (char*)(unsigned char*)null_pos + 20 + 1;
