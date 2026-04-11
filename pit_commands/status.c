@@ -55,7 +55,26 @@ bool is_file_changed(char* tree_content, int tree_size, const char* index_file_h
     return true;
 }
 
+bool file_found(const char* tree_content, int tree_size, const char* filename){
+    char* start = tree_content;
+    char* end = tree_content + tree_size;
 
+    while(start < end){
+        char* null_pos = memchr(start, '\0', end - start);
+        if(null_pos == NULL){
+            break;
+        }
+        char* space = memchr(start, ' ', null_pos - start);
+        if(space != NULL){
+            char* filename_in_tree = space + 1;
+            if(strcmp(filename_in_tree, filename) == 0){
+                return true;
+            }
+        }
+        start = (char*)(unsigned char*)null_pos + 20 + 1;
+    }
+    return false;
+}
 
 void compare_staged_changes(){
     printf("Changes to be committed:\n\n");
@@ -68,10 +87,11 @@ void compare_staged_changes(){
 
     char* index_line = strtok(index_content, "\n");
     while(index_line != NULL){
-        char* copy = strdup(index_line);
-        strtok(copy, " ");
-        char* index_file_hash = strtok(NULL, " ");
-        char* index_file_name = strtok(NULL, "\n");
+
+        char mode[16], hash[41], filename[256];
+        sscanf(index_line, "%s %s %s", mode, hash, filename);
+        char* index_file_hash = hash;
+        char* index_file_name = filename;
 
         char* name = index_file_name;
         if (strncmp(name, "./", 2) == 0) name += 2;
@@ -79,21 +99,7 @@ void compare_staged_changes(){
         // walk tree entries to find filename
         char* p = tree_content;
         char* end = tree_content + tree_size;
-        bool found = false;
-        while (p < end) {
-            char* null_pos = memchr(p, '\0', end - p);
-            if (null_pos == NULL) break;
-            char* space = memchr(p, ' ', null_pos - p);
-            if (space != NULL) {
-                char* entry_name = space + 1;
-                printf("checking: %s against %s\n", entry_name, name);
-                if (strcmp(entry_name, name) == 0) {
-                    found = true;
-                    break;
-                }
-            }
-            p = (char*)(unsigned char*)null_pos + 1 + 20;
-        }
+        bool found = file_found(tree_content, tree_size, name);
 
         if (found) {
             if (is_file_changed(tree_content, tree_size, index_file_hash)){
@@ -103,7 +109,6 @@ void compare_staged_changes(){
             printf("\tNew file: %s\n", index_file_name);
         }
 
-        free(copy);
         index_line = strtok(NULL, "\n");
     }
     printf("\n");
@@ -119,10 +124,13 @@ void compare_not_staged(){
     char* index_line = strtok(index_content, "\n");
 
     while(index_line != NULL){
-        char* copy = strdup(index_line);
-        strtok(copy, " ");
-        char* index_file_hash = strtok(NULL, " ");
-        char* index_file_name = strtok(NULL, "\n");
+        
+
+        char mode[16], hash[41], filename[256];
+        sscanf(index_line, "%s %s %s", mode, hash, filename);
+
+        char* index_file_hash = hash;
+        char* index_file_name = filename;
         char* name = index_file_name;
         if (strncmp(name, "./", 2) == 0) name += 2;
 
@@ -137,7 +145,6 @@ void compare_not_staged(){
             printf("\tModified: %s\n", index_file_name);
         } 
 
-        free(copy);
         free(current_hash);
         index_line = strtok(NULL, "\n");
     }
