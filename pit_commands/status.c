@@ -20,87 +20,43 @@ char* get_commit_tree_content(FileStruct commit, int* tree_size){
     
     char* commit_content = cat_file(commit_hash, NULL);
     char* tree_hash = get_tree_hash(commit_content);
-    printf("tree_hash: %s\n", tree_hash);
+    
     char* tree_content = cat_file(tree_hash, tree_size);
-    printf("tree_size: %d\n", *tree_size);
+    
     return tree_content;
 }
 
-bool is_file_changed(char* tree_content, int tree_size, const char* index_file_hash){
+char* get_hash_from_tree(char* tree_content, int tree_size, char* path) {
     char* start = tree_content;
     char* end = tree_content + tree_size;
+    char* slash = strchr(path, '/');
 
-    bool found = false;
-    while(start < end){
+    while (start < end) {
         char* null_pos = memchr(start, '\0', end - start);
-
         if (null_pos == NULL) break;
+        char* space = memchr(start, ' ', null_pos - start);
+        if (space == NULL) { start = (char*)null_pos + 21; continue; }
 
+        char* filename_in_tree = space + 1;
         unsigned char* bin_hash = (unsigned char*)null_pos + 1;
-        if ((char*)bin_hash + 20 > end) {
-            break;
-        }
 
         char hex[41];
-        for(int i = 0; i < 20; i++){
-            sprintf(hex + (i * 2), "%02x", bin_hash[i]);
-        }
+        for (int i = 0; i < 20; i++) sprintf(hex + (i*2), "%02x", bin_hash[i]);
         hex[40] = '\0';
 
-        if (strcmp(hex, index_file_hash) == 0) {
-            return false; // hash found, not changed
-        }
-        start = (char*)bin_hash + 20;
-    }
-    return true;
-}
-
-bool file_found(char* tree_content, int tree_size, char* path){
-    char* start = tree_content;
-    char* end = tree_content + tree_size;
-
-    char* slash = strchr(path, '/'); // check if if's inside a directory
-
-    while(start < end){
-        char* null_pos = memchr(start, '\0', end - start);
-        if(null_pos == NULL){
-            break;
-        }
-        char* space = memchr(start, ' ', null_pos - start);
-        if(space == NULL) {
-            start = (char*)(unsigned char*)null_pos + 20 + 1;
-            continue;
-        }
-
-        char* mode = start;
-        char* filename_in_tree = space + 1;
-        if(slash == NULL){
-            if (strcmp(filename_in_tree, path) == 0) {
-                return true;
-            }
+        if (slash == NULL) {
+            if (strcmp(filename_in_tree, path) == 0) return strdup(hex);
         } else {
-            // path = "halo/main.c"
-            //         ^   ^
-            //         |   slash (first '/')
-            //         path start
-            // str_dir_len = slash - path = 4  →  "halo"
-            int str_dir_len = slash - path;
-
-            if(strncmp(filename_in_tree, path, str_dir_len) == 0 && filename_in_tree[str_dir_len] == '\0'){
-                unsigned char* bin_hash = (unsigned char*)null_pos + 1;
-                char hex[41];
-                for(int i = 0; i < 20; i++){
-                    sprintf(hex + (i * 2), "%02x", bin_hash[i]);
-                }
-                hex[40] = '\0';
-                int subdir_size;
-                char* subdir_content = cat_file(hex, &subdir_size);
-                return file_found(subdir_content, subdir_size, slash + 1);
+            int dir_len = slash - path;
+            if (strncmp(filename_in_tree, path, dir_len) == 0 && filename_in_tree[dir_len] == '\0') {
+                int sub_size;
+                char* sub_content = cat_file(hex, &sub_size);
+                return get_hash_from_tree(sub_content, sub_size, slash + 1);
             }
         }
-        start = (char*)(unsigned char*)null_pos + 20 + 1;
+        start = (char*)null_pos + 21;
     }
-    return false;
+    return NULL;
 }
 
 void compare_staged_changes(){
@@ -126,15 +82,13 @@ void compare_staged_changes(){
         // walk tree entries to find filename
         char* p = tree_content;
         char* end = tree_content + tree_size;
-        bool found = file_found(tree_content, tree_size, name);
-
-        if (found) {
-            if (is_file_changed(tree_content, tree_size, index_file_hash)){
-                printf("\tModified: %s\n", index_file_name);
-            }
-        } else {
+        char* tree_hash = get_hash_from_tree(tree_content, tree_size, name);
+        if (tree_hash == NULL) {
             printf("\tNew file: %s\n", index_file_name);
+        } else if (strcmp(tree_hash, index_file_hash) != 0) {
+            printf("\tModified: %s\n", index_file_name);
         }
+        free(tree_hash);
 
         index_line = strtok(NULL, "\n");
     }
