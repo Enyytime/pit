@@ -47,6 +47,12 @@ char* get_hash_from_tree(char* tree_content, int tree_size, char* path) {
         if (slash == NULL) {
             if (strcmp(filename_in_tree, path) == 0) return strdup(hex);
         } else {
+            
+            // path = "halo/main.c"
+            //         ^   ^
+            //         |   slash (first '/')
+            //         path start
+            // str_dir_len = slash - path = 4  →  "halo"
             int dir_len = slash - path;
             if (strncmp(filename_in_tree, path, dir_len) == 0 && filename_in_tree[dir_len] == '\0') {
                 int sub_size;
