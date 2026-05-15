@@ -11,7 +11,7 @@
 #include "include/commit.h"
 #include "include/log.h"
 #include "include/status.h"
-
+#include "include/checkout.h"
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -56,6 +56,11 @@ int parse_command(int argc, char** argv){
 
     if(!strcmp(argv[1], "status")){
         pit_status();
+        return 0;
+    }
+
+    if(!strcmp(argv[1], "checkout")){
+        pit_checkout();
         return 0;
     }
 }
