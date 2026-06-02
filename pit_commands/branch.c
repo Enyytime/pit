@@ -29,6 +29,26 @@ char* get_current_branch() {
     return branch_name;  // caller must free head_content when done
 }
 
+static char* get_current_branch_ref(char* ref_path, size_t size) {
+    FILE* head = fopen(".pit/HEAD", "r");
+    if (!head) {
+        return NULL;
+    } 
+
+    char line[256];
+    fgets(line, sizeof(line), head);
+    fclose(head);
+
+    char* last_slash = strrchr(line, '/');
+    if (!last_slash) return NULL;
+    char* branch = last_slash + 1;
+
+    branch[strcspn(branch, "\n")] = '\0';
+    snprintf(ref_path, size, ".pit/refs/heads/%s", branch);
+    return ref_path;
+    
+}
+
 void branch_list() {
     DIR* dir = opendir(".pit/refs/heads");
     if (dir == NULL) {
@@ -56,6 +76,49 @@ void branch_list() {
 }
 
 
+void branch_create(const char* name){
+    char ref_path[256];
+    get_current_branch_ref(ref_path, sizeof(ref_path));
+
+    FILE* f = fopen(ref_path, "r");
+    char hash[41];
+    fgets(hash, sizeof(hash), f);
+    hash[strcspn(hash, "\n")] = '\0';
+    fclose(f);
+
+    // write the current hash to the new branch
+
+    char new_ref[256];
+    snprintf(new_ref, sizeof(new_ref), ".pit/refs/heads/%s", name);
+    FILE* new_branch = fopen(new_ref, "w");
+
+    fprintf(new_branch, "%s\n", hash);
+    fclose(new_branch);
+    printf("Created branch '%s'\n", name);
+
+    return;
+}
+
+void branch_delete(const char* name) {
+    char* current = get_current_branch();
+
+    if (strcmp(current, name) == 0) {
+        printf("error: cannot delete branch '%s' — currently on it\n", name);
+        free(current);
+        return;
+    }
+
+    free(current);
+
+    char ref[256];
+    snprintf(ref, sizeof(ref), ".pit/refs/heads/%s", name);
+    if (remove(ref) != 0) {
+        printf("error: branch '%s' not found\n", name);
+    } else {
+        printf("Deleted branch '%s'\n", name);
+    }
+    return;
+}
 
 void pit_branch(int argc, char** argv) {
     if (argc < 2) {
@@ -73,6 +136,7 @@ void pit_branch(int argc, char** argv) {
         char* name = argv[2];
         // 1. read current HEAD commit hash from refs/heads/main (or current branch)
         // 2. write hash to .pit/refs/heads/<name>
+        branch_create(name);
 
     } else if (strcmp(subcmd, "list") == 0) {
         // 1. opendir(".pit/refs/heads/")
