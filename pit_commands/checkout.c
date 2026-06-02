@@ -101,15 +101,32 @@ void recurse_tree_impl(char* tree_hash, char* current_path){
 
 
 
-void pit_checkout(){
-    FileStruct file = init_file_struct(".pit/refs/heads/main");
+void pit_checkout(char* branch_name) {
+    // 1. build path to branch ref
+    char ref_path[256];
+    snprintf(ref_path, sizeof(ref_path), ".pit/refs/heads/%s", branch_name);
 
+    // 2. check branch exists
+    if (access(ref_path, F_OK) != 0) {
+        printf("error: branch '%s' does not exist\n", branch_name);
+        return;
+    }
+
+    // 3. read commit hash from branch file (your existing logic)
+    FileStruct file = init_file_struct(ref_path);
     char* commit_hash = (char*)read_file_to_string(file);
     commit_hash[strcspn(commit_hash, "\n")] = '\0';
+
+    // 4. restore working tree (your existing logic)
     int content_size = 0;
     char* commit_content = cat_file(commit_hash, &content_size);
     char* tree_hash = get_tree_hash(commit_content);
-
     recurse_tree(tree_hash);
 
+    // 5. update HEAD  <-- this is what you're missing
+    FILE* head = fopen(".pit/HEAD", "w");
+    fprintf(head, "ref: refs/heads/%s\n", branch_name);
+    fclose(head);
+
+    printf("Switched to branch '%s'\n", branch_name);
 }
