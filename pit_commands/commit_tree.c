@@ -17,6 +17,7 @@ char* get_name(FILE* file){
             return val;
         }
     }
+    return NULL;
 }
 
 char* get_email(FILE* file){
@@ -28,69 +29,83 @@ char* get_email(FILE* file){
             return val;
         }
     }
+    return NULL;
 }
 
 char* first_commit(const char* tree_hash, const char* commit_message, const char* name, const char* email, time_t timestamp) {
     char* content = malloc(1024);
-
     int len = 0;
     len += snprintf(content + len, 1024 - len, "tree %s\n", tree_hash);
     len += snprintf(content + len, 1024 - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
     len += snprintf(content + len, 1024 - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
     len += snprintf(content + len, 1024 - len, "\n%s\n", commit_message);
-
-    // printf("content: %s\n", content);
-
     return content;
 }
 
 char* regular_commit(const char* tree_hash, const char* commit_message, const char* name, const char* email, time_t timestamp, const char* parent){
     char* content = malloc(1024);
-
     int len = 0;
     len += snprintf(content + len, 1024 - len, "tree %s\n", tree_hash);
     len += snprintf(content + len, 1024 - len, "parent %s\n", parent);
     len += snprintf(content + len, 1024 - len, "author %s <%s> %ld +0000\n", name, email, timestamp);
     len += snprintf(content + len, 1024 - len, "committer %s <%s> %ld +0000\n", name, email, timestamp);
     len += snprintf(content + len, 1024 - len, "\n%s\n", commit_message);
-
     return content;
 }
 
+static char* get_current_branch_ref(char* ref_path, size_t size) {
+    FILE* head = fopen(".pit/HEAD", "r");
+    if (!head) return NULL;
+    char line[256];
+    fgets(line, sizeof(line), head);
+    fclose(head);
+    char* last_slash = strrchr(line, '/');
+    if (!last_slash) return NULL;
+    char* branch = last_slash + 1;
+    branch[strcspn(branch, "\n")] = '\0';
+    snprintf(ref_path, size, ".pit/refs/heads/%s", branch);
+    return ref_path;
+}
 
 char* write_commit_details(const char* tree_hash, const char* commit_message) {
-
     FILE* config = fopen(".pit/config", "r");
     char* name = get_name(config);
     rewind(config);
     char* email = get_email(config);
-    // printf("commit email: %s\n", email);
+    fclose(config);
+
     time_t timestamp = time(NULL);
     char* content;
 
-    char parent[41];
-    FILE* head = fopen(".pit/refs/heads/main", "r");
+    char ref_path[256];
+    get_current_branch_ref(ref_path, sizeof(ref_path));
 
-    if(head == NULL){
+    char parent[41];
+    FILE* head = fopen(ref_path, "r");
+
+    if (head == NULL) {
         content = first_commit(tree_hash, commit_message, name, email, timestamp);
     } else {
         fgets(parent, sizeof(parent), head);
-        content = regular_commit(tree_hash, commit_message, name, email, timestamp, parent);
+        parent[strcspn(parent, "\n")] = '\0';
         fclose(head);
+        content = regular_commit(tree_hash, commit_message, name, email, timestamp, parent);
     }
 
     char* hex = store_object("commit", (unsigned char*)content, strlen(content));
+    free(content);
 
-    FILE* ref = fopen(".pit/refs/heads/main", "w");
+    FILE* ref = fopen(ref_path, "w");
     fprintf(ref, "%s\n", hex);
     fclose(ref);
 
+    free(name);
+    free(email);
     return hex;
 }
 
-
-
 void pit_commit_tree(const char* tree_hash, const char* commit_message) {
-    char *commit = write_commit_details(tree_hash, commit_message);
+    char* commit = write_commit_details(tree_hash, commit_message);
     printf("%s\n", commit);
+    free(commit);
 }

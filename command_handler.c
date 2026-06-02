@@ -60,7 +60,7 @@ int parse_command(int argc, char** argv){
     }
 
     if(!strcmp(argv[1], "checkout")){
-        pit_checkout();
+        pit_checkout(argv[2]);
         return 0;
     }
 }

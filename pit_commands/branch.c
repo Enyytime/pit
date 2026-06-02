@@ -47,8 +47,10 @@ void branch_list() {
 
         if(strcmp(entry->d_name, current_dir) == 0) {
             printf("*%s\n", entry->d_name);
+        } else {
+            printf("%s\n", entry->d_name);
         }
-        printf("%s\n", entry->d_name);
+        
     }
 
 }
