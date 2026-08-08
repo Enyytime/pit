@@ -63,4 +63,6 @@ int parse_command(int argc, char** argv){
         pit_checkout(argv[2]);
         return 0;
     }
+
+    return 0;
 }

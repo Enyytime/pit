@@ -8,69 +8,112 @@
 #include <stdbool.h>
 
 
-bool is_entry_exist(const char* filename, const char* hash){
-    char line[256];
+#define MAX_INDEX_LINE 512
+
+
+typedef enum { INDEX_ADDED, INDEX_UNCHANGED, INDEX_UPDATED } IndexResult;
+
+
+/**
+ * @brief Adds or updates an entry in .pit/index.
+ *
+ * Reads the whole index into memory, looks for an exact filename match,
+ * and either appends a new entry, leaves an identical one alone, or
+ * replaces the hash of a modified one. The index is rewritten wholesale.
+ */
+IndexResult update_index(const char* mode, const char* hash,
+                         const char* filename) {
+    char** lines = NULL;
+    int count = 0, cap = 0;
+    IndexResult result = INDEX_ADDED;
+
     FILE* file = fopen(".pit/index", "r");
-    if(file == NULL){
-        return false; // index doesn't exist yet, nothing staged
-    }
-    while(fgets(line, sizeof(line), file) != NULL){
-        if(strstr(line, filename) != NULL){
-            fclose(file);
-            return true;
+    if (file != NULL) {
+        char line[MAX_INDEX_LINE];
+        while (fgets(line, sizeof(line), file) != NULL) {
+            line[strcspn(line, "\n")] = '\0';
+            if (line[0] == '\0') continue;
+
+            // parse a copy so the original stays intact
+            char copy[MAX_INDEX_LINE];
+            snprintf(copy, sizeof(copy), "%s", line);
+            char* entry_mode = strtok(copy, " ");
+            char* entry_hash = strtok(NULL, " ");
+            char* entry_name = strtok(NULL, "");
+            if (entry_mode == NULL || entry_hash == NULL || entry_name == NULL) {
+                continue;
+            }
+
+            if (strcmp(entry_name, filename) == 0) {
+                if (strcmp(entry_hash, hash) == 0) {
+                    result = INDEX_UNCHANGED;
+                } else {
+                    result = INDEX_UPDATED;
+                    snprintf(line, sizeof(line), "%s %s %s",
+                             mode, hash, filename);
+                }
+            }
+
+            if (count >= cap) {
+                cap = cap ? cap * 2 : 16;
+                lines = realloc(lines, sizeof(char*) * cap);
+            }
+            lines[count++] = strdup(line);
         }
+        fclose(file);
     }
 
-    fclose(file);
-    return false;
-}
-/**
- * @brief Writes all staged entries to the .pit/index file.
- *
- * Opens .pit/index in append mode and writes each entry as:
- * "<mode> <hash> <filename>"
- *
- * @param entry  Array of EntryNode to write
- * @param count  Number of entries in the array
- */
-void put_to_index(EntryNode entry){
-    FILE* index_file = fopen(".pit/index", "a");
-    if(index_file == NULL){
-        perror(".pit/index");
-        return;
+    if (result == INDEX_UNCHANGED) {
+        for (int i = 0; i < count; i++) free(lines[i]);
+        free(lines);
+        return INDEX_UNCHANGED;
     }
-    // write each entry on its own line
-    fprintf(index_file, "%s %s %s\n", entry.mode, entry.hash, entry.filename);
-    printf("added %s\n", entry.filename);
-    fclose(index_file);
+
+    FILE* out = fopen(".pit/index", "w");
+    if (out == NULL) {
+        perror(".pit/index");
+        for (int i = 0; i < count; i++) free(lines[i]);
+        free(lines);
+        return INDEX_UNCHANGED;
+    }
+
+    for (int i = 0; i < count; i++) {
+        fprintf(out, "%s\n", lines[i]);
+        free(lines[i]);
+    }
+    free(lines);
+
+    if (result == INDEX_ADDED) {
+        fprintf(out, "%s %s %s\n", mode, hash, filename);
+    }
+    fclose(out);
+    return result;
 }
 
 /**
  * @brief Hashes a single file and stages it in the index.
- *
- * Calls hash_file to store the blob, then adds an entry to the
- * in-memory entry list and writes it to .pit/index.
- *
- * @param filename  Path to the file to stage
  */
-void handle_one_file(const char* filename){
-    // hash the file and store it as a blob object
+void handle_one_file(const char* filename) {
+    if (strncmp(filename, "./", 2) == 0) filename += 2;
+
     char* hashed_file = hash_file(filename);
-    char* mode = "100644"; // hardcode for now
+    if (hashed_file == NULL) return;
+    const char* mode = "100644";
 
-
-    if(is_entry_exist(filename, hashed_file)){
-        printf("%s already exist\n", filename);
-        return;
+    switch (update_index(mode, hashed_file, filename)) {
+        case INDEX_ADDED:
+            add_entry(mode, hashed_file, filename);
+            printf("added %s\n", filename);
+            break;
+        case INDEX_UPDATED:
+            add_entry(mode, hashed_file, filename);
+            printf("modified %s\n", filename);
+            break;
+        case INDEX_UNCHANGED:
+            printf("unchanged %s\n", filename);
+            break;
     }
-
-    // add to in-memory entry list
-    add_entry(mode, hashed_file, filename); 
-    int entry_count;
-    EntryNode* entry = get_entries(&entry_count);
-
-    // write to .pit/index
-    put_to_index(entry[entry_count - 1]);
+}_to_index(entry[entry_count - 1]);
 }
 
 bool is_valid_file(const char* filename){
@@ -132,9 +175,9 @@ void handle_multiple_file(const char* prefix){
  *
  * @param filename  File to stage, or "." for all files
  */
-void pit_add(const char* filename){
-    if(!strcmp(filename, ".")){
-        handle_multiple_file(".");
+void pit_add(const char* filename) {
+    if (!strcmp(filename, ".")) {
+        handle_multiple_file("");
     } else {
         handle_one_file(filename);
     }
