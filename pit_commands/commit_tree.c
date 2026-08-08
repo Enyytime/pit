@@ -7,6 +7,8 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <time.h>
+#include "include/refs.h"
+
 
 char* get_name(FILE* file){
     char buffer[256];
@@ -53,59 +55,68 @@ char* regular_commit(const char* tree_hash, const char* commit_message, const ch
     return content;
 }
 
-static char* get_current_branch_ref(char* ref_path, size_t size) {
-    FILE* head = fopen(".pit/HEAD", "r");
-    if (!head) return NULL;
-    char line[256];
-    fgets(line, sizeof(line), head);
-    fclose(head);
-    char* last_slash = strrchr(line, '/');
-    if (!last_slash) return NULL;
-    char* branch = last_slash + 1;
-    branch[strcspn(branch, "\n")] = '\0';
-    snprintf(ref_path, size, ".pit/refs/heads/%s", branch);
-    return ref_path;
-}
-
 char* write_commit_details(const char* tree_hash, const char* commit_message) {
     FILE* config = fopen(".pit/config", "r");
+    if (config == NULL) {
+        fprintf(stderr, "cannot read .pit/config\n");
+        return NULL;
+    }
     char* name = get_name(config);
     rewind(config);
     char* email = get_email(config);
     fclose(config);
 
     time_t timestamp = time(NULL);
-    char* content;
 
-    char ref_path[256];
-    get_current_branch_ref(ref_path, sizeof(ref_path));
-
-    char parent[41];
-    FILE* head = fopen(ref_path, "r");
-
-    if (head == NULL) {
-        content = first_commit(tree_hash, commit_message, name, email, timestamp);
-    } else {
-        fgets(parent, sizeof(parent), head);
-        parent[strcspn(parent, "\n")] = '\0';
-        fclose(head);
-        content = regular_commit(tree_hash, commit_message, name, email, timestamp, parent);
+    char* branch = current_branch();
+    if (branch == NULL) {
+        fprintf(stderr, "HEAD is not on a branch\n");
+        free(name);
+        free(email);
+        return NULL;
     }
 
-    char* hex = store_object("commit", (unsigned char*)content, strlen(content));
+    /* Read the branch tip before building the commit. This same value
+       is passed to update_ref below as the expected old hash, so the
+       commit is only applied if the branch has not moved since. */
+    char* parent = read_ref(branch);
+
+    char* content;
+    if (parent == NULL) {
+        content = first_commit(tree_hash, commit_message,
+                               name, email, timestamp);
+    } else {
+        content = regular_commit(tree_hash, commit_message,
+                                 name, email, timestamp, parent);
+    }
+
+    char* hex = store_object("commit", (unsigned char*)content,
+                             strlen(content));
     free(content);
 
-    FILE* ref = fopen(ref_path, "w");
-    fprintf(ref, "%s\n", hex);
-    fclose(ref);
+    RefResult r = update_ref(branch, hex, parent);
 
     free(name);
     free(email);
+    free(branch);
+    free(parent);
+
+    if (r != REF_OK) {
+        const char* why =
+            (r == REF_STALE)  ? "branch moved since the commit was built" :
+            (r == REF_LOCKED) ? "another process holds the branch lock"   :
+                                "I/O error writing the reference";
+        fprintf(stderr, "commit not applied: %s\n", why);
+        free(hex);
+        return NULL;
+    }
+
     return hex;
 }
 
 void pit_commit_tree(const char* tree_hash, const char* commit_message) {
     char* commit = write_commit_details(tree_hash, commit_message);
+    if (commit == NULL) return;
     printf("%s\n", commit);
     free(commit);
 }

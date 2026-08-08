@@ -1,3 +1,15 @@
+/**
+ * @file add.c
+ * @brief Implements the pit add command — hashing files into blob
+ *        objects and recording them in the index.
+ *
+ * The index is a plain-text file of "<mode> <hash> <path>" lines, one
+ * per staged file. Because a file's entry must be *replaced* when its
+ * content changes, updates rewrite the index wholesale rather than
+ * appending — it is small enough that this is simpler and safer than
+ * seeking within it.
+ */
+
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <string.h>
@@ -7,19 +19,29 @@
 #include <dirent.h>
 #include <stdbool.h>
 
-
 #define MAX_INDEX_LINE 512
 
-
-typedef enum { INDEX_ADDED, INDEX_UNCHANGED, INDEX_UPDATED } IndexResult;
-
+/**
+ * @brief Outcome of staging a single file.
+ */
+typedef enum {
+    INDEX_ADDED,     /**< Path was not in the index; a new entry was appended. */
+    INDEX_UNCHANGED, /**< Path was already staged with an identical hash. */
+    INDEX_UPDATED    /**< Path was staged with a different hash; entry replaced. */
+} IndexResult;
 
 /**
- * @brief Adds or updates an entry in .pit/index.
+ * @brief Adds or updates one entry in .pit/index.
  *
  * Reads the whole index into memory, looks for an exact filename match,
- * and either appends a new entry, leaves an identical one alone, or
- * replaces the hash of a modified one. The index is rewritten wholesale.
+ * and either appends, leaves an identical entry alone, or replaces the
+ * hash of a modified one. Matching is on the full parsed filename
+ * field, not a substring search — "a.txt" must not match "data.txt".
+ *
+ * @param mode      File mode as text, currently always "100644".
+ * @param hash      40-character hex SHA-1 of the file's blob.
+ * @param filename  Path relative to the repository root.
+ * @return Which of the three cases applied.
  */
 IndexResult update_index(const char* mode, const char* hash,
                          const char* filename) {
@@ -34,13 +56,15 @@ IndexResult update_index(const char* mode, const char* hash,
             line[strcspn(line, "\n")] = '\0';
             if (line[0] == '\0') continue;
 
-            // parse a copy so the original stays intact
+            /* Parse a copy so the original line survives intact for
+               the rewrite below. */
             char copy[MAX_INDEX_LINE];
             snprintf(copy, sizeof(copy), "%s", line);
             char* entry_mode = strtok(copy, " ");
             char* entry_hash = strtok(NULL, " ");
             char* entry_name = strtok(NULL, "");
-            if (entry_mode == NULL || entry_hash == NULL || entry_name == NULL) {
+            if (entry_mode == NULL || entry_hash == NULL
+                || entry_name == NULL) {
                 continue;
             }
 
@@ -63,6 +87,7 @@ IndexResult update_index(const char* mode, const char* hash,
         fclose(file);
     }
 
+    /* Nothing changed — leave the file untouched. */
     if (result == INDEX_UNCHANGED) {
         for (int i = 0; i < count; i++) free(lines[i]);
         free(lines);
@@ -91,7 +116,13 @@ IndexResult update_index(const char* mode, const char* hash,
 }
 
 /**
- * @brief Hashes a single file and stages it in the index.
+ * @brief Hashes a single file and stages it.
+ *
+ * Stores the file's content as a blob object, then records or updates
+ * its index entry. A leading "./" is stripped so paths are stored in
+ * the same normalised form regardless of how add was invoked.
+ *
+ * @param filename  Path to the file to stage.
  */
 void handle_one_file(const char* filename) {
     if (strncmp(filename, "./", 2) == 0) filename += 2;
@@ -113,67 +144,64 @@ void handle_one_file(const char* filename) {
             printf("unchanged %s\n", filename);
             break;
     }
-}_to_index(entry[entry_count - 1]);
 }
 
-bool is_valid_file(const char* filename){
-    if(!strcmp(filename, ".")){
-        return false;
-    }
-    if(!strcmp(filename, "..")){
-        return false;
-    }
-    if(!strcmp(filename, ".pit")){
-        return false;
-    }
-    if(!strcmp(filename, ".git")){
-        return false;
-    }
+/**
+ * @brief Reports whether a directory entry should be traversed.
+ *
+ * Filters out the self and parent links along with the repository
+ * metadata directories, which must never be staged.
+ *
+ * @param filename  Bare directory entry name.
+ * @return True if it should be visited.
+ */
+bool is_valid_file(const char* filename) {
+    if (!strcmp(filename, "."))    return false;
+    if (!strcmp(filename, ".."))   return false;
+    if (!strcmp(filename, ".pit")) return false;
+    if (!strcmp(filename, ".git")) return false;
     return true;
 }
 
 /**
- * @brief Handles staging all files in the current directory.
+ * @brief Recursively stages every regular file beneath a directory.
  *
- * Not yet implemented.
+ * @param prefix  Path relative to the repository root; empty string
+ *                for the root itself.
  */
-void handle_multiple_file(const char* prefix){
+void handle_multiple_file(const char* prefix) {
     struct dirent* ent;
-    DIR *dir = opendir(strlen(prefix) == 0 ? "." : prefix);
-    
-    
+    DIR* dir = opendir(strlen(prefix) == 0 ? "." : prefix);
     if (dir == NULL) {
         perror("opendir");
         return;
     }
 
-    while((ent = readdir(dir)) != NULL){
-        if(!is_valid_file(ent->d_name)){
+    while ((ent = readdir(dir)) != NULL) {
+        if (!is_valid_file(ent->d_name)) {
             continue;
         }
         char full_path[512];
-        if(strlen(prefix) == 0){
+        if (strlen(prefix) == 0) {
             snprintf(full_path, sizeof(full_path), "%s", ent->d_name);
         } else {
-            snprintf(full_path, sizeof(full_path), "%s/%s", prefix, ent->d_name);
+            snprintf(full_path, sizeof(full_path), "%s/%s",
+                     prefix, ent->d_name);
         }
-        if(ent->d_type == DT_DIR){
+        if (ent->d_type == DT_DIR) {
             handle_multiple_file(full_path);
-        } else if (ent->d_type == DT_REG){
+        } else if (ent->d_type == DT_REG) {
             handle_one_file(full_path);
         }
     }
 
     closedir(dir);
-    return;
 }
 
 /**
  * @brief Entry point for the pit add command.
- * 
- * If filename is "." stages all files, otherwise stages a single file.
  *
- * @param filename  File to stage, or "." for all files
+ * @param filename  File to stage, or "." to stage everything.
  */
 void pit_add(const char* filename) {
     if (!strcmp(filename, ".")) {

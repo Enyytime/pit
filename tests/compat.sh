@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+
 
 WORK=/tmp/pittest
 rm -rf "$WORK"
@@ -33,9 +33,26 @@ cat > .git/config <<'EOF'
 EOF
 
 echo; echo "== git fsck =="
-git fsck --full --strict || echo "FSCK FAILED"
+git --no-pager fsck --full --strict || echo "FSCK FAILED"
 
 echo; echo "== git log =="
-git log --oneline || echo "LOG FAILED"
+git --no-pager log --oneline || echo "LOG FAILED"
 
 echo;
+echo; echo "== HEAD commit object =="
+git --no-pager cat-file -p HEAD || echo "CAT-FILE FAILED"
+
+echo; echo "== root tree =="
+git --no-pager cat-file -p HEAD^{tree} || echo "TREE FAILED"
+
+echo; echo "== recursive tree listing =="
+git --no-pager ls-tree -r HEAD || echo "LS-TREE FAILED"
+
+echo; echo "== full graph walk =="
+git --no-pager rev-list --objects --all | wc -l
+
+echo; echo "== hash agreement on a single blob =="
+echo "pit: $(pit hash-object a.txt)"
+echo "git: $(git hash-object a.txt)"
+
+echo; echo "done. repo left at $WORK for poking around"
