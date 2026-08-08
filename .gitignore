@@ -1,0 +1,28 @@
+# Build output
+pit
+*.o
+*.d
+
+# Pit's own repository data — pit creates this when run in-tree
+.pit/
+
+# Debug and sanitizer artifacts
+*.dSYM/
+core
+vgcore.*
+callgrind.out.*
+massif.out.*
+perf.data*
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+tags
+compile_commands.json
+
+# Test scratch (in case anything lands locally)
+/tmp/pittest/
