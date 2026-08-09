@@ -11,17 +11,25 @@
  * @brief Decompresses a zlib-compressed buffer.
  *
  * Allocates a buffer 4x the compressed size as an estimate for the
- * decompressed output.
+ * decompressed output. Highly compressible data can exceed that
+ * estimate, in which case zlib reports Z_BUF_ERROR and this returns
+ * NULL rather than a partially filled buffer.
  *
  * @param decompressed_size  Output: actual size of decompressed data
  * @param f                  FileStruct used to determine compressed size
  * @param compress           Compressed data buffer
- * @return                   Heap-allocated decompressed buffer — caller must free
+ * @return                   Heap-allocated decompressed buffer, or NULL
+ *                           on failure — caller must free
  */
 unsigned char* decompress_data(uLongf* decompressed_size, FileStruct f, unsigned char* compress){
     *decompressed_size = f.filesize * 4;
     unsigned char* decompressed = (unsigned char*)malloc(*decompressed_size);
-    uncompress(decompressed, decompressed_size, compress, f.filesize);
+    int return_status = uncompress(decompressed, decompressed_size, compress, f.filesize);
+
+    if (return_status != Z_OK) {
+        free(decompressed);
+        return NULL;
+    }
     return decompressed;
 }
 
@@ -53,7 +61,8 @@ char* cat_file(const char* hash, int* size){
         *size = decompressed_size - (content - decompressed);
     }
 
-    return (char*)content;
+    memmove(decompressed, content, decompressed_size - (content - decompressed));
+    return (char*)decompressed;
 }
 
 void pit_cat_file(const char* hash){
