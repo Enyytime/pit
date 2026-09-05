@@ -12,6 +12,7 @@
 #include "include/log.h"
 #include "include/status.h"
 #include "include/checkout.h"
+#include "include/pack.h"
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -61,6 +62,21 @@ int parse_command(int argc, char** argv){
 
     if(!strcmp(argv[1], "checkout")){
         pit_checkout(argv[2]);
+        return 0;
+    }
+
+    if(!strcmp(argv[1], "read-pack")){
+        int count;
+        PackObject* objects = read_pack(argv[2], &count);
+        if(objects == NULL){
+            return 1;
+        }
+        printf("%d objects\n\n", count);
+        for(int i = 0; i < count; i++){
+            printf("%-10s size %-6d offset %d\n", get_type_name(objects[i].type),
+                   objects[i].size, objects[i].offset);
+        }
+        free_pack(objects, count);
         return 0;
     }
 

@@ -1,16 +1,12 @@
-/**
- * im still trying to understand how packfiles works so for this file i ask
- * AI to fully write it
- * 
- */
-
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#include <openssl/sha.h>
 #include "include/pack.h"
 #include "include/file_handler.h"
+#include "include/hash_object.h"
 
 /*
 PACK<version><count>            <- 12 byte header
@@ -47,6 +43,28 @@ const char* get_type_name(int type){
 }
 
 /**
+ * @brief Turns a type name into the number used in a pack header.
+ *
+ * @param type_name  "commit", "tree", "blob" or "tag"
+ * @return           The type number, or 0 if the name is not known
+ */
+int get_type_number(const char* type_name){
+    if(!strcmp(type_name, "commit")){
+        return OBJ_COMMIT;
+    }
+    if(!strcmp(type_name, "tree")){
+        return OBJ_TREE;
+    }
+    if(!strcmp(type_name, "blob")){
+        return OBJ_BLOB;
+    }
+    if(!strcmp(type_name, "tag")){
+        return OBJ_TAG;
+    }
+    return 0;
+}
+
+/**
  * @brief Reads a 4 byte number stored biggest byte first.
  *
  * Packfiles store numbers the opposite way round to x86, so the bytes
@@ -58,6 +76,22 @@ const char* get_type_name(int type){
  */
 int read_big_endian(unsigned char* buf){
     return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+}
+
+/**
+ * @brief Writes a 4 byte number biggest byte first.
+ *
+ * The opposite of read_big_endian. Shifts each byte out of the number
+ * instead of shifting it in.
+ *
+ * @param buf     Where to write the 4 bytes
+ * @param number  The number to write
+ */
+void write_big_endian(unsigned char* buf, int number){
+    buf[0] = (number >> 24) & 255;
+    buf[1] = (number >> 16) & 255;
+    buf[2] = (number >> 8) & 255;
+    buf[3] = number & 255;
 }
 
 /**
@@ -87,6 +121,43 @@ int read_object_header(unsigned char* buf, int* type, int* size){
         pos++;
         *size = *size | ((byte & 127) << shift);
         shift = shift + 7;
+    }
+
+    return pos;
+}
+
+/**
+ * @brief Writes one object's type and uncompressed size.
+ *
+ * The opposite of read_object_header. The first byte takes the type
+ * and the bottom 4 bits of the size, then 7 bits of size go in each
+ * byte after that. Every byte except the last gets its top bit set so
+ * the reader knows to keep going.
+ *
+ * @param buf   Where to write the header, needs room for 8 bytes
+ * @param type  The object type
+ * @param size  The uncompressed size
+ * @return      How many bytes the header used
+ */
+int write_object_header(unsigned char* buf, int type, int size){
+    int pos = 0;
+
+    unsigned char byte = (type << 4) | (size & 15);
+    size = size >> 4;
+    if(size > 0){
+        byte = byte | 128;
+    }
+    buf[pos] = byte;
+    pos++;
+
+    while(size > 0){
+        byte = size & 127;
+        size = size >> 7;
+        if(size > 0){
+            byte = byte | 128;
+        }
+        buf[pos] = byte;
+        pos++;
     }
 
     return pos;
@@ -216,6 +287,85 @@ PackObject* read_pack(const char* path, int* count){
     free(data);
     *count = length;
     return objects;
+}
+
+/**
+ * @brief Writes a list of objects out as a packfile.
+ *
+ * Every object is stored whole. Git would normally store similar
+ * objects as deltas to save space, but a pack with no deltas in it is
+ * still valid, just bigger.
+ *
+ * The whole pack is built in memory first because the trailer is a
+ * SHA1 of everything before it, so nothing can be written until all
+ * the objects are done.
+ *
+ * @param path     Where to write the .pack file
+ * @param objects  Objects to pack, each needs type, size and content
+ * @param count    How many objects to write
+ * @return         0 on success, 1 on failure
+ */
+int write_pack(const char* path, PackObject* objects, int count){
+    int capacity = 1024;
+    int length = 0;
+    unsigned char* pack = (unsigned char*)malloc(capacity);
+    if(pack == NULL){
+        return 1;
+    }
+
+    // 12 byte header: "PACK", version 2, how many objects
+    memcpy(pack, "PACK", 4);
+    write_big_endian(pack + 4, 2);
+    write_big_endian(pack + 8, count);
+    length = 12;
+
+    for(int i = 0; i < count; i++){
+        uLongf compressed_size;
+        unsigned char* compressed = compress_data(objects[i].content,
+                                                  objects[i].size,
+                                                  &compressed_size);
+        if(compressed == NULL){
+            free(pack);
+            return 1;
+        }
+
+        // make sure there is room for the header, the data and the trailer
+        while(length + 8 + (int)compressed_size + 20 >= capacity){
+            capacity = capacity * 2;
+            unsigned char* bigger = (unsigned char*)realloc(pack, capacity);
+            if(bigger == NULL){
+                free(compressed);
+                free(pack);
+                return 1;
+            }
+            pack = bigger;
+        }
+
+        length = length + write_object_header(pack + length,
+                                              objects[i].type,
+                                              objects[i].size);
+
+        memcpy(pack + length, compressed, compressed_size);
+        length = length + compressed_size;
+        free(compressed);
+    }
+
+    // trailer is the sha1 of everything written so far, as raw bytes
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1(pack, length, hash);
+    memcpy(pack + length, hash, SHA_DIGEST_LENGTH);
+    length = length + SHA_DIGEST_LENGTH;
+
+    FILE* file = fopen(path, "wb");
+    if(file == NULL){
+        perror(path);
+        free(pack);
+        return 1;
+    }
+    fwrite(pack, 1, length, file);
+    fclose(file);
+    free(pack);
+    return 0;
 }
 
 /**
