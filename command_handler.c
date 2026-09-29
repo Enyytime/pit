@@ -13,6 +13,7 @@
 #include "include/status.h"
 #include "include/checkout.h"
 #include "include/pack.h"
+#include "include/merge.h"
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -77,6 +78,15 @@ int parse_command(int argc, char** argv){
                    objects[i].size, objects[i].offset);
         }
         free_pack(objects, count);
+        return 0;
+    }
+
+    if (!strcmp(argv[1], "merge")) {
+        if (argc < 3) {
+            fprintf(stderr, "usage: pit merge <branch>\n");
+            return 1;
+        }
+        pit_merge(argv[2]);
         return 0;
     }
 
