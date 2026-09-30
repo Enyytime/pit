@@ -14,6 +14,12 @@
 #include "include/checkout.h"
 #include "include/pack.h"
 #include "include/merge.h"
+#include "include/pull.h"
+#include "include/push.h"
+#include "include/transport.h"
+#include "include/fetch.h"
+#include "include/remote.h"
+
 
 int parse_command(int argc, char** argv){
     if(argc < 2){
@@ -89,6 +95,21 @@ int parse_command(int argc, char** argv){
         pit_merge(argv[2]);
         return 0;
     }
-
+    if (!strcmp(argv[1], "push")) {
+        pit_push(argc >= 3 ? argv[2] : "origin");
+        return 0;
+    }
+    if (!strcmp(argv[1], "fetch")) {
+        pit_fetch(argc >= 3 ? argv[2] : "origin");
+        return 0;
+    }
+    if (!strcmp(argv[1], "pull")) {
+        pit_pull(argc >= 3 ? argv[2] : "origin");
+        return 0;
+    }
+    if (!strcmp(argv[1], "remote")) {
+        pit_remote(argc - 1, argv + 1);
+        return 0;
+    }
     return 0;
 }

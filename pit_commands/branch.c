@@ -18,15 +18,16 @@
 
 char* get_current_branch() {
     FileStruct f = init_file_struct(".pit/HEAD");
-    char* head_content = (char*)read_file_to_string(f);
-    fclose(f.file);  // close it here
+    char* head = (char*)read_file_to_string(f);
+    fclose(f.file);
+    head[f.filesize] = '\0';
 
-    // parse the branch name
-    char* last_slash = strrchr(head_content, '/');
-    char* branch_name = last_slash + 1;
-    branch_name[strcspn(branch_name, "\n")] = '\0';
+    char* slash = strrchr(head, '/');
+    char* branch = strdup(slash + 1);
+    branch[strcspn(branch, "\n")] = '\0';
 
-    return branch_name;  // caller must free head_content when done
+    free(head);
+    return branch;   // caller frees
 }
 
 static char* get_current_branch_ref(char* ref_path, size_t size) {

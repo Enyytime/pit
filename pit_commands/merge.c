@@ -6,11 +6,14 @@
 #include "include/checkout.h"
 
 // read commit hash from a branch ref file
-static char* read_ref(const char* branch) {
-    char ref_path[256];
-    snprintf(ref_path, sizeof(ref_path), ".pit/refs/heads/%s", branch);
-
-    FILE* f = fopen(ref_path, "r");
+static char* read_ref(const char* name) {
+    char path[256];
+    snprintf(path, sizeof(path), ".pit/refs/heads/%s", name);
+    FILE* f = fopen(path, "r");
+    if (!f) {
+        snprintf(path, sizeof(path), ".pit/refs/remotes/%s", name);
+        f = fopen(path, "r");
+    }
     if (!f) return NULL;
 
     char* hash = malloc(41);
@@ -36,7 +39,7 @@ static char* get_parent(const char* commit_hash) {
 }
 
 // walk target's history, check if base_hash appears in it
-static int is_ancestor(const char* base_hash, const char* target_hash) {
+int is_ancestor(const char* base_hash, const char* target_hash) {  
     char* current = strdup(target_hash);
 
     while (current != NULL) {
@@ -74,7 +77,12 @@ void pit_merge(const char* branch_name) {
 
     char* current_hash = read_ref(current_branch);
     char* target_hash  = read_ref(branch_name);
-
+    
+    if (!current_hash) {
+        printf("error: current branch has no commits\n");
+        free(target_hash);
+        return;
+    }
     if (!target_hash) {
         printf("error: branch '%s' not found\n", branch_name);
         free(current_hash);
