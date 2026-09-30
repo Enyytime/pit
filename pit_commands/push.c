@@ -7,6 +7,7 @@
 #include "include/branch.h"
 #include "include/transport.h"
 #include "include/push.h"
+#include "include/http_transport.h"
 
 static int push_branch(const char* url, const char* branch) {
     char local_ref[256];
@@ -71,7 +72,10 @@ void pit_push(const char* remote_name) {
         return;
     }
     char* branch = get_current_branch();
-    push_branch(url, branch);
+    if (strncmp(url, "http", 4) == 0)
+        http_push(url, branch);
+    else
+        push_branch(url, branch);
     free(branch);
     free(url);
 }

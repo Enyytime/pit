@@ -5,6 +5,7 @@
 #include "include/branch.h"
 #include "include/transport.h"
 #include "include/fetch.h"
+#include "include/http_transport.h"
 
 static int fetch_branch(const char* remote_name, const char* url, const char* branch) {
     // 1. download objects we don't have
@@ -46,7 +47,10 @@ void pit_fetch(const char* remote_name) {
         return;
     }
     char* branch = get_current_branch();
-    fetch_branch(remote_name, url, branch);
+    if (strncmp(url, "http", 4) == 0)
+        http_fetch(remote_name, url, branch);
+    else
+        fetch_branch(remote_name, url, branch);
     free(branch);
     free(url);
 }
